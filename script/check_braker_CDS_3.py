@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/6/26 20:22
 # @Author  : jhuang
-# 检测注释结果中CDS总长度错误的基因,以及起始密码子错误的基因(转录本)
+# Identify genes with abnormal CDS lengths and transcripts containing incorrect start codons in the annotation
 # modified Time: 2024/9/23 09:14
-# 检测注释结果中含有提前终止密码子的注释
+# Identify genes or transcripts with premature stop codons in the annotation results
 # modified Time: 2024/12/19 15:11
-# 缺少终止密码子过滤
+# Remove genes or transcripts lacking stop codons
 import re
 from util import *
 import sys
@@ -47,11 +47,11 @@ def main():
             cds_error_trans.add(trans_id)
             all_error_trans.add(trans_id)
 
-    # 生成蛋白质序列
+    # Translate coding sequences to protein sequences
     cmd_linux(f'braker_gtf2gff.py {file} {prefix}.gff')
     cmd_linux(f'python /home/jhuang/script/pycharm/hj/gfftrans.py -gff {prefix}.gff cds -g {genome} -cdsp {prefix} -prop {prefix}')
 
-    # 提取错误转录本id
+    # Retrieve transcript IDs with annotation errors
     # cmd_linux(f'grep -B1 -v -e "^M" -e "^>" gffread.{prefix}.protein.fa | grep ">" | sed "s/>//g" > start_stop_coden_error.txt')
     with open(f'{prefix}.protein.fasta', 'r') as f2, open('advance_stop_coden_error.txt', 'w') as o2, open('start_stop_coden_error.txt', 'w') as o3:
         for line in f2:

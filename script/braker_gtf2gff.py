@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/5/19 16:53
 # @Author  : jhuang
-# braker修改后的gtf注释文件转换为gff格式
+# Transform the GTF annotation file from Braker into GFF format
 # Usage: pytoonbraker_gtf2gff.py $gtf_file $output
 
 import re
