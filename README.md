@@ -2,7 +2,7 @@
 An annotation pipeline for haplotype-resolved gene annotation in heterozygous diploid genomes.
 
 ## Dependencies
-XXX
+1. [BRAKER3](https://github.com/Gaius-Augustus/BRAKER)
 
 ## Installation
 ### Install via github
