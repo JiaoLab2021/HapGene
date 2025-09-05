@@ -3,6 +3,18 @@ An annotation pipeline for haplotype-resolved gene annotation in heterozygous di
 
 ## Dependencies
 1. [BRAKER3](https://github.com/Gaius-Augustus/BRAKER)
+2. [Hisat2](https://github.com/DaehwanKimLab/hisat2)
+3. [Samtools](https://github.com/samtools/samtools)
+4. [Fastp](https://github.com/OpenGene/fastp)
+5. [Miniprot](https://github.com/lh3/miniprot)
+6. [IsoSeq](https://github.com/PacificBiosciences/IsoSeq)
+7. [Minimap2](https://github.com/lh3/minimap2)
+8. [Transdecoder](https://github.com/sghignone/TransDecoder)
+9. [EvidenceModeler](https://github.com/EVidenceModeler)
+10. [Blast](https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/)
+11. [LiftOn](https://github.com/Kuanhao-Chao/LiftOn)
+12. [MMseq2](https://github.com/soedinglab/MMseqs2)
+13. [PASApipeline](https://github.com/PASApipeline/PASApipeline)
 
 ## Installation
 ### Install via github
