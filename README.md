@@ -33,5 +33,17 @@ HapGene.py [-h] -g genome1 genome2 [genome1 genome2 ...] -w workdir --protein pr
 ```bash
 S1_1.fastq.gz S1_2.fastq.gz S2_1.fastq.gz S2_2.fastq.gz ...
 ```
+Please note that transcriptome files must have the suffixes _1.fastq.gz and _2.fastq.gz.
+
+### Running
+Test data are provided in the test/ folder for users to try the pipeline.
+Example command:
+```bash
+HapGene.py -g test/test.hap1.genome.fa test/test.hap2.genome.fa \
+-w anno -t 30 -s species \
+-r test \
+--protein test/homo_protein.fa \
+-p hap1 hap2 
+```
 
 
