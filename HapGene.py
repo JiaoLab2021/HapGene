@@ -61,7 +61,7 @@ def main():
     filter.run_all()
 
 
-# 先激活环境braker3
+# braker3 Environment
 def get_parser():
     parser = argparse.ArgumentParser(description="This script parallelizes the commands of the input file.")
 
