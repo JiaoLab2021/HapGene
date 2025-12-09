@@ -19,14 +19,14 @@ def main():
     shred = float(sys.argv[5])
 
     df = pd.read_csv(tmp, header=0, index_col=0, low_memory=False)
-    # 创建一个新的列 'Check'，并使用 apply 方法检查条件
+
     df['row_sum'] = df.sum(axis=1)
-    df['Check'] = df.apply(lambda row: (row > shred).any(), axis=1)  # axis=1表示按行应用
-    # 获取 'Check' 列为 True 的行的索引，并存储在一个列表中
+    df['Check'] = df.apply(lambda row: (row > shred).any(), axis=1)
+
     HC_gene = df[df['Check'] == True].index.tolist()
     HC_gene_set = set(HC_gene)
 
-    # 提取 'sum' 列等于 0 的行
+
     no_expression_set = set(df[df['row_sum'] == 0].index.tolist())
 
     TErelated_gene = []
@@ -37,7 +37,7 @@ def main():
                 continue
             else:
                 line_li = line.split("\t")
-                if float(line_li[2]) >= float(overlap):  # overlap大于30时，认定与TE有关
+                if float(line_li[2]) >= float(overlap):
                     gene = re.findall(r'(.*?)\.', line_li[1])[0]
                     TErelated_gene.append(gene)
                 else:

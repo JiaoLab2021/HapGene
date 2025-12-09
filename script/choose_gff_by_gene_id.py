@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/11/11 21:22
 # @Author  : jhuang
-# 根据gene_id查找对应注释
+
 
 from util import *
 import re

@@ -47,11 +47,11 @@ def main():
             cds_error_trans.add(trans_id)
             all_error_trans.add(trans_id)
 
-    # 生成蛋白质序列
+
     cmd_linux(f'braker_gtf2gff.py {file} {prefix}.gff')
     cmd_linux(f'python /home/jhuang/script/pycharm/hj/gfftrans.py -gff {prefix}.gff cds -g {genome} -cdsp {prefix} -prop {prefix}')
 
-    # 提取错误转录本id
+
     # cmd_linux(f'grep -B1 -v -e "^M" -e "^>" gffread.{prefix}.protein.fa | grep ">" | sed "s/>//g" > start_stop_coden_error.txt')
     with open(f'{prefix}.protein.fasta', 'r') as f2, open('advance_stop_coden_error.txt', 'w') as o2, open('start_stop_coden_error.txt', 'w') as o3:
         for line in f2:

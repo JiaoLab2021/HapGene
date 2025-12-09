@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/7/4 20:41
 # @Author  : jhuang
-# EDTA、RepeatModuler注释TE后，计算overlap
+# EDTA overlap
 # gff文件exon最后1列必须包含ID=*;Parent=*
 
 import os

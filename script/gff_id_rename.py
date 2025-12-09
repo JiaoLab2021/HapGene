@@ -21,7 +21,7 @@ def main():
     output_gff = pre + '.rename.gff'
     with open(input_gff) as f1, open(output_gff, 'w') as f2:
         gene_n = 10
-        feature_counts = defaultdict(int)  # 默认字典用于特征计数
+        feature_counts = defaultdict(int)
 
         for line in f1:
             line = line.strip()
@@ -42,7 +42,7 @@ def main():
 
                 gene_n += 10
                 trans_n = 1
-                feature_counts.clear()  # 清除所有特征的计数
+                feature_counts.clear()
 
             elif feature_type == 'mRNA':
                 info_mRNA_last = line_li[-1]
@@ -53,11 +53,11 @@ def main():
                 f2.write(info_mRNA + '\n')
 
                 trans_n += 1
-                feature_counts.clear()  # 重置特征计数以适应新的转录本
+                feature_counts.clear()
 
             else:
                 # 处理其他feature
-                feature_counts[feature_type] += 1  # 当前特征计数加1
+                feature_counts[feature_type] += 1
                 feature_n = feature_counts[feature_type]
                 info_other_last = (f'ID={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n - 1}.{line_li[2]}.{feature_n};'
                                    f'Parent={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n - 1};'
