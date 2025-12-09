@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/3/29 10:47
 # @Author  : jhuang
-# Edit the Braker-generated GTF file to correct format inconsistencies
+# 修改braker输出的gtf文件（格式不标准）
 # Usage： python braker_gtf.modify.py $braker.gtf $modified.name
 import re
 import sys

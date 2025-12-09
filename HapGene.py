@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2025/7/24 11:02
 # @Author  : jhuang
-# fastq must be renamed such as *_1.fastq.gz/ *_2.fastq.gz
+# 原始fastq文件必须更名为*_1.fastq.gz/ *_2.fastq.gz
 import glob
 import subprocess
 import argparse
@@ -19,10 +19,17 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
 
+    args.genome = [os.path.abspath(g) for g in args.genome]
+
+    # 其它需要绝对路径的也一次性处理
+    args.workdir = os.path.abspath(args.workdir)
+    args.protein = os.path.abspath(args.protein)
+    args.rawdatadir = os.path.abspath(args.rawdatadir)
+
     # if not args.TE_anno and not args.lib:
     #     parser.error("argument --lib is required when --TE_anno is not specified.")
 
-    base_workdir = args.workdir.rstrip('/')
+    base_workdir = os.path.abspath(args.workdir)
 
     for i, (genome_file, prefix_hap) in enumerate(zip(args.genome, args.prefix), 1):
         args_current = vars(args).copy()
@@ -61,7 +68,7 @@ def main():
     filter.run_all()
 
 
-# braker3 Environment
+# 先激活环境braker3
 def get_parser():
     parser = argparse.ArgumentParser(description="This script parallelizes the commands of the input file.")
 
@@ -75,12 +82,13 @@ def get_parser():
     required.add_argument("-p", "--prefix", metavar="prefix1 prefix2", help="Output prefix.", required=True, nargs='+')
 
     optional = parser.add_argument_group('optional arguments')
-    optional.add_argument('--TE_anno', action='store_true', help='Run TE annotation step', required=False)
+    optional.add_argument('--TE_anno', metavar="TE_library", help='EDTA TEanno.gff3', required=False)
     optional.add_argument('--long', action='store_true', help='Pacbio long-reads mode', required=False)
     optional.add_argument('--lib', metavar="TE_library", help='Library file for RepeatMasker', required=False)
     optional.add_argument('--threshold', type=float, default=0.9, help='Threshold for polish filtering alignments (default: 0.9)')
     optional.add_argument("--lencf", metavar="length_cutoff", type=float,  help="Mono-exonic genes length cutoff [default=1000]", required=False, default=1000)
     optional.add_argument("--tpmcf", metavar="TPM_Value_cutoff", type=float, help="Mono-exonic genes TPM value cutoff [default=1]", required=False, default=1)
+    optional.add_argument("--overlap", metavar="TE overlap", type=float, help="TE overlap cutoff [default=30]", required=False, default=30.0)
     return parser
 
 
@@ -296,7 +304,7 @@ class AnnotationPolish:
         self.threshold = args.threshold
 
     def genome_gff_modify(self):
-        # ====================== Step1: genome and annotion modify and merge ======================
+        # ====================== Step1: 所有基因组和注释修改与整合 ======================
         modified_dir = f'{self.workdir}/03_polish/00_merge'
         polish_workdir = f'{self.workdir}/03_polish'
         mkdir(modified_dir)
@@ -309,7 +317,7 @@ class AnnotationPolish:
         for i, (genome_file, prefix_hap) in enumerate(zip(self.genome, self.prefix), 1):
             evm_file = os.path.join(self.workdir, f"0{i}_{prefix_hap}/05_EVM", f"{prefix_hap}.EVM.all.rename.gff")
 
-            # parse haplotype gff and genome
+            # 处理每个单倍型的GFF和基因组文件
             self.gff_chr_modi(genome_file, evm_file, prefix_hap, modified_dir)
 
             polish_dir = f'{polish_workdir}/0{i}_{prefix_hap}'
@@ -318,7 +326,7 @@ class AnnotationPolish:
             gff_files.append(f'{modified_dir}/{prefix_hap}.gff')
             genome_files.append(f'{modified_dir}/{prefix_hap}.genome.fa')
 
-        # merge all file
+        # 合并所有GFF和基因组文件
         cmd_linux(f'cat {" ".join(gff_files)} > {modified_dir}/all.gff')
         cmd_linux(f'cat {" ".join(genome_files)} > {modified_dir}/all.fa')
 
@@ -337,13 +345,13 @@ class AnnotationPolish:
         modified_dir = f'{self.workdir}/03_polish/00_merge'
         polish_workdir = f'{self.workdir}/03_polish'
         for i, (genome_file, prefix_hap) in enumerate(zip(self.genome, self.prefix), 1):
-            # ====================== Step1: Cluster existing gene sequences and perform BLASTN alignment to the genome ======================
+            # ====================== Step1: 对现有gene序列聚类，blastn比对到基因组 ======================
             os.chdir(modified_dir)
-            # Process gene data for each haplotype
+            # 处理每个单倍型的基因数据
             self.process_gene_data(f'{modified_dir}/{prefix_hap}.gff', prefix_hap, f'{modified_dir}/{prefix_hap}.genome.fa')
 
             os.chdir(f'{polish_workdir}/0{i}_{prefix_hap}')
-            # Perfor mmmseqs alignment for each haplotype
+            # 对每个单倍型进行mmseqs比对
             db_path = f'{prefix_hap}_db'
             aln_res = f'{prefix_hap}.alnRes.m8'
             if not os.path.exists(aln_res):
@@ -353,20 +361,20 @@ class AnnotationPolish:
                           f'--cov-mode 2 --threads 36 -c 0.8 --search-type 3 '
                           f'--format-output "query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,qcov"')
 
-            # Polish and finalize the data for each haplotype
+            # 对每个单倍型进行polish和最终处理
             self.polish(prefix_hap, self.threshold, f'{modified_dir}/all.gff', f'{modified_dir}/{prefix_hap}.genome.fa',
                    f'{modified_dir}/all.fa')
 
             if os.path.exists('maybe_miss_gene.txt'):
                 if os.path.getsize('maybe_miss_gene.txt') == 0:
-                    print("The file is empty")
+                    print("文件为空")
                 else:
                     self.add_final_gff(prefix_hap, f'{modified_dir}/{prefix_hap}.genome.fa', f'{modified_dir}/{prefix_hap}.gff')
             else:
-                print("The file does not exist")
+                print("文件不存在")
 
-            # Delete intermediate files
-            # cmd_linux(f'rm *.fai *.mmi')
+            # 删除中间文件
+            cmd_linux(f'rm *.fai *.mmi')
 
     def gff_chr_modi(self, genome, gff, prefix, modified_dir):
         gff_df = pd.read_csv(gff, sep='\t', comment='#', header=None,
@@ -375,7 +383,7 @@ class AnnotationPolish:
         gff_df['chr'] = prefix + "_" + gff_df['chr'].astype(str)
         gff_df.to_csv(f'{modified_dir}/{prefix}.gff', sep='\t', index=False, header=False)
 
-        # parse genome.fa
+        # 处理 genome.fa
         output_lines = []
         with open(genome, 'r') as f:
             for line in f:
@@ -386,10 +394,12 @@ class AnnotationPolish:
                 else:
                     output_lines.append(line + '\n')
 
+        # 一次性写入，提高效率
         with open(f'{modified_dir}/{prefix}.genome.fa', 'w') as o:
             o.writelines(output_lines)
 
     def polish(self, target_prefix, threshold, query_gff, target_genome, query_genome):
+        # ====================== Step2: 根据identity、coverage阈值,筛选blastn结果 ========================
         blastn_df = pd.read_csv(f'{target_prefix}.alnRes.m8', sep='\t', header=None)
         blastn_df.columns = ['qseqid', 'sseqid', 'pident', 'length', 'mismatch', 'gapopen', 'qstart', 'qend',
                              'sstart',
@@ -404,7 +414,7 @@ class AnnotationPolish:
                 else:
                     length = len(line)
                     gene_dict[gene_id] = length
-
+        # 使用map()方法来将基因ID映射到gene_dict中的基因长度
         blastn_df['gene_length'] = blastn_df['qseqid'].map(gene_dict)
         blastn_df['length_percent'] = (blastn_df['qend'] - blastn_df['qstart'] + 1) / blastn_df['gene_length'] * 100
         filtered_df = blastn_df[(blastn_df['pident'] > threshold) &
@@ -416,20 +426,21 @@ class AnnotationPolish:
                 row['sstart'], row['send'] = row['send'], row['sstart']
             return row
 
+        # 应用该函数到整个 DataFrame
         filtered_df = filtered_df.apply(swap_columns, axis=1)
         filtered_df = filtered_df[['sseqid', 'sstart', 'send', 'qseqid']]
         filtered_df.to_csv('blastn.filtered.bed', sep='\t', index=False, header=False)
         # print(filtered_df)
         # ===========================================================================================
 
-        # ====================== Step2: bedtools choose overlap ==========================================
+        # ====================== Step2: bedtools查看overlap ==========================================
         cmd = f'bedtools intersect -a blastn.filtered.bed -b {self.workdir}/03_polish/00_merge/{target_prefix}.gene.bed -wao > bedtools.out'
         cmd_linux(cmd)
         # ===========================================================================================
 
-        # ====================== Step3: Select missing genes according to the output from BEDTools =================================
+        # ====================== Step3: 根据bedtools结果筛选miss gene =================================
         dup_set = set()
-        single_set_tmp = set()  # Unique genes without any overlaps
+        single_set_tmp = set()  # 唯一没有overlap gene
         with open('bedtools.out', 'r') as f:
             for line in f:
                 line = line.strip()
@@ -459,18 +470,18 @@ class AnnotationPolish:
 
         if os.path.exists('maybe_miss_gene.txt'):
             if os.path.getsize('maybe_miss_gene.txt') == 0:
-                print("File is empty")
+                print("文件为空")
             else:
                 cmd_linux(
                     f'choose_gff_by_gene_id.py maybe_miss_gene.txt {query_gff} > ref_maybe_miss_gene.gff')  # ===========================================================================================
 
-                # ====================== Step3: Select missing genes using BEDTools output and use LiftOn to transfer their annotations =================================
+                # ====================== Step3: 根据bedtools结果筛选miss gene,进行LiftOn转移注释 =================================
                 # LiftOn
                 if os.path.getsize('ref_maybe_miss_gene.gff') != 0:
                     cmd = f'lifton -g ref_maybe_miss_gene.gff -o lifton_out.gff -copies {target_genome} {query_genome}'
                     cmd_linux(cmd)
 
-                # remove error annotation
+                # 移除错误注释
                 cmd = f'gffread lifton_out.gff -T -o lifton_out.gtf;python /home/jhuang/script/pycharm/01_Bio/check_braker_CDS_3.py lifton_out.gtf lifton_out_miss {target_genome}'
                 cmd_linux(cmd)
 
@@ -478,10 +489,10 @@ class AnnotationPolish:
                 cmd_linux(cmd)
                 # ==================================================================================================
         else:
-            print("File is empty")
+            print("文件不存在")
 
     def add_final_gff(self, target_prefix, target_genome, target_gff):
-        # rename
+        # 先改名
         cmd_linux(
             f'gff_id_rename.py lifton_out_miss.rmERROR.gff lifton_{target_prefix}')
         # lifton_prefix = re.findall(r'(.*?)\.gff', lifton_rmERROR_gff)[0]
@@ -494,61 +505,65 @@ class AnnotationPolish:
         cmd_linux(
             f'bedtools intersect -a lifton_out_miss.gene.bed -b {target_prefix}.gene.bed -wao > lifton_original.bedtools')
 
-        bedtools_out_lifton_original_df = pd.read_csv('lifton_original.bedtools', sep='\t',
-                                                      header=None)
-        bedtools_out_lifton_original_df.columns = ['lchrom', 'lstart', 'lend', 'lid', 'tchrom', 'tstart', 'tend',
-                                                   'tid',
-                                                   'score']
+        if os.path.getsize('lifton_original.bedtools') == 0:
+            cmd_linux(f'ln -s {target_gff} {target_prefix}_final_polish_find.gff3')
+        else:
+            bedtools_out_lifton_original_df = pd.read_csv('lifton_original.bedtools', sep='\t',
+                                                          header=None)
+            bedtools_out_lifton_original_df.columns = ['lchrom', 'lstart', 'lend', 'lid', 'tchrom', 'tstart', 'tend',
+                                                       'tid',
+                                                       'score']
 
-        # No overlap with the original annotation
-        df_no = bedtools_out_lifton_original_df[bedtools_out_lifton_original_df['tid'] == '.']
-        # Overlap with the original annotation
-        df_yes = bedtools_out_lifton_original_df[bedtools_out_lifton_original_df['tid'] != '.']
-        # print(bedtools_out_lifton_transdecoder_df)
-        # print(df_no)
-        # print(df_yes)
-        df_no_bed = df_no[['lchrom', 'lstart', 'lend', 'lid']]
-        df_yes_bed = df_yes[['tchrom', 'tstart', 'tend', 'tid']]
-        df_no_bed.to_csv('not_have_intersect.bed', sep='\t', header=False, index=False)
-        df_yes_bed.to_csv('have_intersect.bed', sep='\t', header=False, index=False)
+            # 与原始注释无交叉
+            df_no = bedtools_out_lifton_original_df[bedtools_out_lifton_original_df['tid'] == '.']
+            # 与原始注释有交叉
+            df_yes = bedtools_out_lifton_original_df[bedtools_out_lifton_original_df['tid'] != '.']
+            # print(bedtools_out_lifton_transdecoder_df)
+            # print(df_no)
+            # print(df_yes)
+            df_no_bed = df_no[['lchrom', 'lstart', 'lend', 'lid']]
+            df_yes_bed = df_yes[['tchrom', 'tstart', 'tend', 'tid']]
+            df_no_bed.to_csv('not_have_intersect.bed', sep='\t', header=False, index=False)
+            df_yes_bed.to_csv('have_intersect.bed', sep='\t', header=False, index=False)
 
-        gene_dict_exon = {}
-        with open('lifton_out_miss.rmERROR.rename.gff') as f:
-            for line in f:
-                line = line.strip()
-                line_li = line.split('\t')
-                if line_li[2] == 'gene':
-                    gene_id = re.findall(r'ID=(.*?);', line_li[-1])[0]
-                if line_li[2] == 'mRNA':
-                    gene_dict_exon[gene_id] = 0
-                if line_li[2] == 'exon':
-                    gene_dict_exon[gene_id] += 1
-        # for gene_id, num in gene_dict_exon.items():
-        #     print(gene_id + '\t' + str(num))
+            # 与原注释交叉情况
+            gene_dict_exon = {}
+            with open('lifton_out_miss.rmERROR.rename.gff') as f:
+                for line in f:
+                    line = line.strip()
+                    line_li = line.split('\t')
+                    if line_li[2] == 'gene':
+                        gene_id = re.findall(r'ID=(.*?);', line_li[-1])[0]
+                    if line_li[2] == 'mRNA':
+                        gene_dict_exon[gene_id] = 0
+                    if line_li[2] == 'exon':
+                        gene_dict_exon[gene_id] += 1
+            # for gene_id, num in gene_dict_exon.items():
+            #     print(gene_id + '\t' + str(num))
 
-        dfff = pd.read_csv('lifton_original.bedtools', sep='\t', header=None)
-        dfff.columns = ['lchrom', 'lstart', 'lend', 'lid', 'tchrom', 'tstart', 'tend', 'tid', 'score']
-        dfff['exon_num'] = dfff['lid'].map(gene_dict_exon)
-        # dfff_no = dfff[(dfff['tid'] == '.') & (dfff['exon_num'] != 1)]  # 过滤单外显子基因
-        dfff_no = dfff[(dfff['tid'] == '.')]
-        dfff_no_id = dfff_no[['lid']]
-        dfff_no_id.to_csv('lifton.id.txt', sep='\t', index=False, header=False)
-        # print(dfff_no)
-        unique_count1 = dfff_no_id['lid'].nunique()
-        print('Final gene number in LiftOn: ' + str(unique_count1))
+            dfff = pd.read_csv('lifton_original.bedtools', sep='\t', header=None)
+            dfff.columns = ['lchrom', 'lstart', 'lend', 'lid', 'tchrom', 'tstart', 'tend', 'tid', 'score']
+            dfff['exon_num'] = dfff['lid'].map(gene_dict_exon)
+            # dfff_no = dfff[(dfff['tid'] == '.') & (dfff['exon_num'] != 1)]  # 过滤单外显子基因
+            dfff_no = dfff[(dfff['tid'] == '.')]
+            dfff_no_id = dfff_no[['lid']]
+            dfff_no_id.to_csv('lifton.id.txt', sep='\t', index=False, header=False)
+            # print(dfff_no)
+            unique_count1 = dfff_no_id['lid'].nunique()
+            print('Final gene number in LiftOn: ' + str(unique_count1))
 
-        cmd_linux(
-            f'choose_gff_by_gene_id.py lifton.id.txt lifton_out_miss.rmERROR.rename.gff > lifton.id.gff')
-        cmd_linux(
-            f'cat lifton.id.gff {target_gff} > {target_prefix}_final_polish_find.gff;'
-            f'sort_gff.py {target_prefix}_final_polish_find.gff;mv sorted.gff {target_prefix}_final_polish_find.gff3;rm {target_prefix}_final_polish_find.gff')
+            cmd_linux(
+                f'choose_gff_by_gene_id.py lifton.id.txt lifton_out_miss.rmERROR.rename.gff > lifton.id.gff')
+            cmd_linux(
+                f'cat lifton.id.gff {target_gff} > {target_prefix}_final_polish_find.gff;'
+                f'sort_gff.py {target_prefix}_final_polish_find.gff;mv sorted.gff {target_prefix}_final_polish_find.gff3;rm {target_prefix}_final_polish_find.gff')
 
-        # # 评估
-        # cmd_linux(f'gffread {target_prefix}/{target_prefix}_final_polish_find.gff3 -g {target_genome} -y {target_prefix}/{target_prefix}.pep.fa')
-        # cmd_linux(f'conda run -n braker3 busco -c 50 -m prot -l /home/jhuang/Database/busco/01_embryophyta_odb10 --offline '
-        #           f'-i {target_prefix}/{target_prefix}.pep.fa -o {target_prefix}/{target_prefix}.pep.fa_busco_1614')
-        # cmd_linux(f'conda run -n compleasm compleasm protein -p {target_prefix}/{target_prefix}.pep.fa '
-        #           f'-l /home/jhuang/Database/busco/01_embryophyta_odb10 -t 50 -o {target_prefix}/{target_prefix}.pep.fa_compleasm_1614')
+            # # 评估
+            # cmd_linux(f'gffread {target_prefix}/{target_prefix}_final_polish_find.gff3 -g {target_genome} -y {target_prefix}/{target_prefix}.pep.fa')
+            # cmd_linux(f'conda run -n braker3 busco -c 50 -m prot -l /home/jhuang/Database/busco/01_embryophyta_odb10 --offline '
+            #           f'-i {target_prefix}/{target_prefix}.pep.fa -o {target_prefix}/{target_prefix}.pep.fa_busco_1614')
+            # cmd_linux(f'conda run -n compleasm compleasm protein -p {target_prefix}/{target_prefix}.pep.fa '
+            #           f'-l /home/jhuang/Database/busco/01_embryophyta_odb10 -t 50 -o {target_prefix}/{target_prefix}.pep.fa_compleasm_1614')
 
     def run_all(self):
         self.genome_gff_modify()
@@ -569,6 +584,9 @@ class AnnotationFilter:
         self.threshold = args.threshold
         self.lencf = args.lencf
         self.tpmcf = args.tpmcf
+        self.TE_anno = args.TE_anno
+        self.overlap = args.overlap
+        self.species = args.species
         # required.add_argument("--gff", metavar="gff", help="Gff annotation", required=True)
         # required.add_argument("--go", metavar="GO", help="Interproscan result GO", required=True)
         # required.add_argument("--tpm", metavar="TPM_Value", help="Expression TPM", required=True)
@@ -627,10 +645,35 @@ class AnnotationFilter:
 
     def expression_tpm(self, tpm):
         tpm_df = pd.read_csv(tpm, sep=',', header=0, index_col=0)
+        # print(tpm_df)
         # tpm_df.columns.values[0] = 'gene_id'
         df_filtered = tpm_df[(tpm_df <= self.tpmcf).all(axis=1)]
         expression_tpm_set = set(df_filtered.index)
         return expression_tpm_set
+
+    def rmTE(self, prefix, annotation_gff, bam_dir, i):
+        cmd_linux(f'gffread {annotation_gff} -T -o {prefix}.filtered.gtf')
+        if self.TE_anno:
+            cmd_linux(
+                f"egrep -v 'Low|Simple|RNA|other|Satellite' {self.TE_anno} | cut -f 1,4,5,9 > {prefix}.TE.bed")
+            # 计算overlap
+            cmd_linux(
+                f"python {self.hapgene_path}/calculate_TE_gene_overlap.py {prefix}.TE.bed {annotation_gff}")
+            # 计算表达量生成HC基因
+            # featureCounts
+            cmd_linux(
+                f"featureCounts -T 30 -t exon -p -g gene_id -a {prefix}.filtered.gtf -o featureCounts.txt {bam_dir}/*.bam")
+            cmd_linux(f"Rscript {self.hapgene_path}/cal_tpm.R {prefix}.featureCounts.gene.txt {prefix}")
+            # 选择overlap阈值，去除TE相关基因的注释
+            cmd_linux(f"python {self.hapgene_path}/get_HC_RNA_express_gene.py {annotation_gff} "
+                      f"{prefix}_tpm.csv {prefix}.removedTE.gff {self.overlap} 0.5")
+
+            # rename
+            cmd_linux(f'python {self.hapgene_path}/gff_id_rename.py {prefix}.removedTE.gff {self.species}H{i}')
+            cmd_linux(f'mv {prefix}.removedTE.rename.gff {prefix}.HapGene.gff')
+        else:
+            cmd_linux(f'python {self.hapgene_path}/gff_id_rename.py {prefix}.filterd.gff {self.species}H{i}')
+            cmd_linux(f'mv {prefix}.filterd.rename.gff {prefix}.HapGene.gff')
 
     def run_all(self):
         polish_workdir = f'{self.workdir}/03_polish'
@@ -644,35 +687,39 @@ class AnnotationFilter:
             polish_gff = f'{polish_workdir}/0{i}_{prefix_hap}/{prefix_hap}.mo.polish.gff'
             gff_df.to_csv(polish_gff, sep='\t', index=False, header=False)
             cmd = f'gffread {polish_gff} -T -o {prefix_hap}.mo.polish.gtf'
+            cmd_linux(cmd)
             cmd = f'gffread {polish_gff} -g {genome_file} -y {prefix_hap}.mo.polish.pep.fa'
             cmd_linux(cmd)
 
             # run interproscan
-            cmd1 = f'interproscan.sh -cpu 30 -i {prefix_hap}.mo.polish.pep.fa -b {prefix_hap}.GO -iprlookup -pa --goterms -f TSV --goterms'
-            cmd_linux(cmd1)
+            cmd1 = f'conda run -n base interproscan.sh -cpu 30 -i {prefix_hap}.mo.polish.pep.fa -b {prefix_hap}.GO -iprlookup -pa --goterms -f TSV --goterms'
+            #cmd_linux(cmd1)
 
             # expression
             cmd2 = f'featureCounts -T 50 -t exon -p -g gene_id -a {prefix_hap}.mo.polish.gtf -o {prefix_hap}.featureCounts.gene.txt {self.workdir}/0{i}_{prefix_hap}/01_rna_bam/*bam'
             cmd_linux(cmd2)
+
             cmd3 = f'Rscript {self.hapgene_path}/cal_tpm.R {prefix_hap}.featureCounts.gene.txt {prefix_hap}'
+            # print(os.getcwd())
             cmd_linux(cmd3)
 
             gene_all_set, length_cut_set = self.gene_length_exon_num(polish_gff, prefix_hap)
 
-            go = ''
-            go_without_anno_set = self.domain_go(go, gene_all_set)
+            # go = ''
+            # go_without_anno_set = self.domain_go(go, gene_all_set)
 
-            tpm = ''
+            tpm = f'{prefix_hap}_tpm.csv'
             expression_tpm_set = self.expression_tpm(tpm)
 
-            false_positive_gene_set = length_cut_set & go_without_anno_set & expression_tpm_set
+            # false_positive_gene_set = length_cut_set & go_without_anno_set & expression_tpm_set
+            false_positive_gene_set = length_cut_set & expression_tpm_set
             false_positive_gene_list = sorted(list(false_positive_gene_set))
 
             filtered_gene_list = sorted(list(gene_all_set - false_positive_gene_set))
 
             with open(f'{prefix_hap}_false_positive_genes.txt', 'w') as o1:
-                for i in false_positive_gene_list:
-                    o1.write(i + '\n')
+                for p in false_positive_gene_list:
+                    o1.write(p + '\n')
 
             with open(f'{prefix_hap}_filtered.txt', 'w') as o2:
                 for j in filtered_gene_list:
@@ -680,6 +727,9 @@ class AnnotationFilter:
 
             cmd = f'{self.hapgene_path}/choose_gff_by_gene_id.py {prefix_hap}_filtered.txt {polish_gff} > {prefix_hap}.filterd.gff'
             cmd_linux(cmd)
+
+            self.rmTE(prefix_hap, polish_gff, f'{self.workdir}/0{i}_{prefix_hap}/01_rna_bam', i)
+
 
 
 if __name__ == '__main__':

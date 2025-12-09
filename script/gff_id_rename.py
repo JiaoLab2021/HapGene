@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/8/23 10:00
 # @Author  : jhuang
-# Update gene and transcript IDs in the GFF annotation
-# Rename IDs in the format prefix_C*00010…
+# 修改gff注释文件id
+# 格式为prefix_C*00010...
 
 import sys
 import re
@@ -20,8 +20,8 @@ def main():
     pre = re.findall(r'(.*?)\.gff.*$', os.path.basename(input_gff))[0]
     output_gff = pre + '.rename.gff'
     with open(input_gff) as f1, open(output_gff, 'w') as f2:
-        gene_n = 1
-        feature_counts = defaultdict(int)
+        gene_n = 10
+        feature_counts = defaultdict(int)  # 默认字典用于特征计数
 
         for line in f1:
             line = line.strip()
@@ -35,33 +35,33 @@ def main():
 
             if feature_type == 'gene':
                 info_gene_last = line_li[-1]
-                info_gene_last = re.sub(r'ID=[^;]+(?=;|$)', f'ID={prefix}_g{gene_n}', info_gene_last)
-                info_gene_last = re.sub(r'Name=[^;]+(?=;|$)', f'Name={prefix}_g{gene_n}', info_gene_last)
-                info_gene = '\t'.join(line_li[:-2] + ['.'] + [info_gene_last])
+                info_gene_last = re.sub(r'ID=[^;]+(?=;|$)', f'ID={prefix}{chr}_g{str(gene_n).zfill(6)}', info_gene_last)
+                info_gene_last = re.sub(r'Name=[^;]+(?=;|$)', f'Name={prefix}{chr}_g{str(gene_n).zfill(6)}', info_gene_last)
+                info_gene = '\t'.join(line_li[:8] + [info_gene_last])
                 f2.write(info_gene + '\n')
 
-                gene_n += 1
+                gene_n += 10
                 trans_n = 1
-                feature_counts.clear()
+                feature_counts.clear()  # 清除所有特征的计数
 
             elif feature_type == 'mRNA':
                 info_mRNA_last = line_li[-1]
-                info_mRNA_last = re.sub(r'ID=[^;]+(?=;|$)', f'ID={prefix}_g{gene_n-1}.t{trans_n}', info_mRNA_last)
-                info_mRNA_last = re.sub(r'Name=[^;]+(?=;|$)', f'Name={prefix}_g{gene_n-1}.t{trans_n}', info_mRNA_last)
-                info_mRNA_last = re.sub(r'Parent=[^;]+(?=;|$)', f'Parent={prefix}_g{gene_n-1}', info_mRNA_last)
+                info_mRNA_last = re.sub(r'ID=[^;]+(?=;|$)', f'ID={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n}', info_mRNA_last)
+                info_mRNA_last = re.sub(r'Name=[^;]+(?=;|$)', f'Name={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n}', info_mRNA_last)
+                info_mRNA_last = re.sub(r'Parent=[^;]+(?=;|$)', f'Parent={prefix}{chr}_g{str(gene_n - 10).zfill(6)}', info_mRNA_last)
                 info_mRNA = '\t'.join(line_li[:-1] + [info_mRNA_last])
                 f2.write(info_mRNA + '\n')
 
                 trans_n += 1
-                feature_counts.clear()
+                feature_counts.clear()  # 重置特征计数以适应新的转录本
 
             else:
-
-                feature_counts[feature_type] += 1
+                # 处理其他feature
+                feature_counts[feature_type] += 1  # 当前特征计数加1
                 feature_n = feature_counts[feature_type]
-                info_other_last = (f'ID={prefix}_g{gene_n-1}.t{trans_n-1}.{line_li[2]}.{feature_n};'
-                                   f'Parent={prefix}_g{gene_n-1}.t{trans_n-1};'
-                                   f'Name={prefix}_g{gene_n-1}.t{trans_n-1}.{line_li[2]}.{feature_n}')
+                info_other_last = (f'ID={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n - 1}.{line_li[2]}.{feature_n};'
+                                   f'Parent={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n - 1};'
+                                   f'Name={prefix}{chr}_g{str(gene_n - 10).zfill(6)}.{trans_n - 1}.{line_li[2]}.{feature_n}')
                 info_other = '\t'.join(line_li[:-1] + [info_other_last])
                 f2.write(info_other + '\n')
 
