@@ -43,7 +43,8 @@ HapGene.py -g test/test.hap1.genome.fa test/test.hap2.genome.fa \
 -w anno -t 30 -s species \
 -r test \
 --protein test/homo_protein.fa \
--p hap1 hap2 
+-p hap1 hap2
 ```
+*.HapGene.gff is the final annotation result.
 
 
