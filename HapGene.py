@@ -61,7 +61,7 @@ def main():
 
     filter = AnnotationFilter(args)
     filter.run_all()
-
+    cmd_linux(f'find {args.workdir}/ -type f -name "*HapGene.gff" -exec ln -s {{}} {args.workdir} \\;')
 
 def get_parser():
     parser = argparse.ArgumentParser(description="This script parallelizes the commands of the input file.")
